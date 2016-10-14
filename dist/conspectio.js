@@ -10420,13 +10420,13 @@
 	var viewerRTCEndpoint = __webpack_require__(67);
 
 	var ConspectioConnection = function () {
-	  function ConspectioConnection(eventId, role, domId, viewHandler, options) {
+	  function ConspectioConnection(eventId, role, domId, viewerHandlers, options) {
 	    _classCallCheck(this, ConspectioConnection);
 
 	    this.eventId = eventId;
 	    this.role = role;
 	    this.domId = domId;
-	    this.viewHandler = viewHandler;
+	    this.viewerHandlers = viewerHandlers;
 	    this.options = options;
 	    this.stream = null;
 	  }
@@ -10457,7 +10457,7 @@
 	        })();
 	      } else if (this.role && this.role === 'viewer') {
 	        // invoke viewerRTCEndpoint - setup appropriate socket events relating to webRTC connection
-	        viewerRTCEndpoint(this.eventId, this.domId, this.viewHandler);
+	        viewerRTCEndpoint(this.eventId, this.viewerHandlers);
 	      }
 	    }
 	  }, {
@@ -20913,7 +20913,7 @@
 
 	var ConspectioViewer = __webpack_require__(68);
 
-	var viewerRTCEndpoint = function viewerRTCEndpoint(eventTag, domId, viewHandler) {
+	var viewerRTCEndpoint = function viewerRTCEndpoint(eventTag, viewerHandlers) {
 
 	  // viewer wants to initiate contact with broadcaster
 	  conspectio.socket.emit('initiateView', eventTag);
@@ -20921,7 +20921,7 @@
 	  // viewer receives offer or candidate signaling messages
 	  conspectio.socket.on('signal', function (fromId, message) {
 	    if (message.type === 'offer') {
-	      var newPC = new ConspectioViewer(fromId, domId);
+	      var newPC = new ConspectioViewer(fromId, viewerHandlers);
 	      conspectio.connections[fromId] = newPC;
 	      newPC.init();
 	      newPC.receiveOffer(message.offer);
@@ -20934,13 +20934,21 @@
 	    }
 	  });
 
-	  //redirect viewer to events page if there are no more broadcasters streaming their event
-	  conspectio.socket.on('redirectToEvents', function (destination) {
+	  // inform developer if there are no more broadcasters
+	  conspectio.socket.on('noMoreBroadcasters', function () {
 	    // invoke the viewHandler callback passed in by developer to handle no more broadcasters situation
-	    if (viewHandler) {
-	      viewHandler(destination);
+	    if (viewerHandlers && viewerHandlers.noMoreBroadcasters) {
+	      viewerHandlers.noMoreBroadcasters();
 	    }
 	  });
+
+	  //     //redirect viewer to events page if there are no more broadcasters streaming their event
+	  // conspectio.socket.on('redirectToEvents', (destination) => {
+	  //   // invoke the viewHandler callback passed in by developer to handle no more broadcasters situation
+	  //   if(viewerHandlers && viewerHandlers.noMoreBroadcasters) {
+	  //     viewerHandlers.noMoreBroadcasters(destination);
+	  //   }
+	  // });
 
 	  //broadcaster left - close connection & remove from connections object
 	  conspectio.socket.on('broadcasterLeft', function (broadcasterId) {
@@ -20971,11 +20979,11 @@
 	// custom wrapper class over RTCPeerConnection object
 
 	var ConspectioViewer = function () {
-	  function ConspectioViewer(broadcasterId, domId) {
+	  function ConspectioViewer(broadcasterId, viewerHandlers) {
 	    _classCallCheck(this, ConspectioViewer);
 
 	    this.broadcasterId = broadcasterId;
-	    this.domId = domId;
+	    this.viewerHandlers = viewerHandlers;
 	    this.pc;
 	  }
 
@@ -20993,7 +21001,7 @@
 	      });
 
 	      this.pc.broadcasterId = this.broadcasterId; // add custom attribute
-	      this.pc.domId = this.domId; // add custom attribute
+	      this.pc.viewerHandlers = this.viewerHandlers; // add custom attribute
 	      this.pc.onicecandidate = this.handleIceCandidate;
 	      this.pc.onaddstream = this.handleRemoteStreamAdded;
 	      this.pc.onremovestream = this.handleRemoteStreamRemoved;
@@ -21020,13 +21028,11 @@
 	        'autoplay': true,
 	        'id': this.broadcasterId.slice(2)
 	      });
-	      var responsiveGrid = $('<div class = "col-xs-6"></div>');
-	      var videoDiv = $('<div class="videoDiv"></div>');
-	      var videoDivVideo = videoDiv.append(video);
-	      var responsiveGridvideoDivVideo = responsiveGrid.append(videoDivVideo);
 
-	      var viewerVideosDivId = '#' + this.domId;
-	      $(viewerVideosDivId).append(responsiveGridvideoDivVideo);
+	      // invoke broadcasterAdded callback
+	      if (this.viewerHandlers && this.viewerHandlers.broadcasterAdded) {
+	        this.viewerHandlers.broadcasterAdded(video);
+	      }
 	    }
 	  }, {
 	    key: 'handleRemoteStreamRemoved',
@@ -21078,9 +21084,11 @@
 	    key: 'closeWrapper',
 	    value: function closeWrapper() {
 	      this.pc.close();
-	      //remove stream video tag
-	      $('#' + this.broadcasterId.slice(2)).remove();
-	      console.log('broadcaster stream removed from closewrapper');
+
+	      // invoke broadcasterRemoved callback passing in video id to indicate dom element removal
+	      if (this.viewerHandlers && this.viewerHandlers.broadcasterRemoved) {
+	        this.viewerHandlers.broadcasterRemoved(this.broadcasterId.slice(2));
+	      }
 	    }
 	  }]);
 

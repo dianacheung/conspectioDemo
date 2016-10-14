@@ -25,15 +25,38 @@ function setupViewerDom() {
   return eventTag;
 }
 
-function handleNoMoreBroadcasters(destination) {
+function handleNoMoreBroadcasters() {
+  const destination = './events.html';
   console.log('redirecting viewer to events page');
   window.location.href = destination;
 }
 
-var eventTag = setupViewerDom();
+function handleBroadcasterAdded(newVideo) {
+  console.log('handleBroadcasterAdded invoked, newVideo', newVideo);
 
-// expected args - eventId, role, domId, viewHandler, RTCPeerConnection options
-var conspectioConnectionObj = new conspectio.ConspectioConnection(eventTag, 'viewer', 'conspectioViewerContainer', handleNoMoreBroadcasters, null);
+  const responsiveGrid = $('<div class = "col-xs-6"></div>');
+  const videoDiv = $('<div class="videoDiv"></div>').append(newVideo);
+  // const videoDivVideo = videoDiv.append(newVideo);
+  const responsiveGridvideoDivVideo = responsiveGrid.append(videoDiv);
+
+  const viewerVideosDivId = '#' + 'conspectioViewerContainer';
+  $(viewerVideosDivId).append(responsiveGridvideoDivVideo);
+}
+
+function handleBroadcasterRemoved(videoDivId) {
+    //remove stream video tag
+    $('#' + videoDivId).remove();
+    console.log('broadcaster stream removed from closewrapper');
+}
+
+const eventTag = setupViewerDom();
+const viewerHandlers = {
+  noMoreBroadcasters: handleNoMoreBroadcasters,
+  broadcasterAdded: handleBroadcasterAdded,
+  broadcasterRemoved: handleBroadcasterRemoved
+};
+// expected args - eventId, role, domId, viewerHandlers, RTCPeerConnection options
+var conspectioConnectionObj = new conspectio.ConspectioConnection(eventTag, 'viewer', 'conspectioViewerContainer', viewerHandlers, null);
 conspectioConnectionObj.start();
 
 
