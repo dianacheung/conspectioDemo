@@ -17,8 +17,27 @@
   </div>
 
   <div id="conspectioBroadcasterContainer">
+    
+    <div class="row">
+      <div class="col-xs-6"></div>
+      <div class="thumbnail">
+        <div class="caption">
+          <h2>Broadcast to the World!</h2>
+          <p>Add an event name and hit start!</p>
+        </div>
+        <div id="broadcasterinputs">
+          <input id="eventTag" type="text" placeholder="tag your stream here">
+          <input id="startButton" class="btn btn-success btn-sm" type="submit" value="start">
+          <input id="stopButton" class="btn btn-danger btn-sm" type="submit" value="stop" disabled="disabled">
+        </div>
+        <video id="broadcasterStream" autoplay></video>
+        <div id="broadcastMsg">
+        </div>
+      </div>
+    </div>
   </div>
 
+  <script src="https://code.jquery.com/jquery-3.1.1.min.js" integrity="sha256-hVVnYaiADRTO2PzUGmuLJr8BLUSjGIZsDYGmIJLv2b8=" crossorigin="anonymous"></script>
   <script type="text/javascript" src="conspectio.js"></script>
   <script type="text/javascript" src="broadcaster.js"></script>
 

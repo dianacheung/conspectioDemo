@@ -46,33 +46,43 @@
 
 	'use strict';
 
-	var conspectio = {};
+	// load the conspectio library object unto the window object
+	if (!window.conspectio) {
+	  var conspectio = {};
 
-	// require in webrtc-adapter for shimming
-	__webpack_require__(1);
+	  // require in webrtc-adapter for shimming
+	  __webpack_require__(1);
 
-	// require in socket.io-client
-	var io = __webpack_require__(11);
+	  // require in socket.io-client
+	  var io = __webpack_require__(11);
 
-	// instantiate shared socket
-	conspectio.socket = io();
+	  // instantiate socket
+	  conspectio.socket = io();
 
-	conspectio.broadcasterStream = null;
-	conspectio.broadcasterEventTag = null;
-	conspectio.initiator = null;
-	conspectio.connections = {};
-	// conspectio.webRTCConfig = {};
+	  // conspectio.broadcasterStream = null;
+	  // conspectio.broadcasterEventTag = null;
+	  // conspectio.initiator = null;
+	  conspectio.connections = {};
+	  // conspectio.webRTCConfig = {};
 
-	// import module that handles broadcasterSetup
-	conspectio.broadcasterSetup = __webpack_require__(61);
+	  // import module that handles broadcasterSetup
+	  // conspectio.broadcasterSetup = require('./broadcasterSetup');
+	  // import the ConspectioConnection module
+	  conspectio.ConspectioConnection = __webpack_require__(61);
 
-	// import module that handles eventsSetup
-	conspectio.eventsSetup = __webpack_require__(68);
+	  // import the ConspectioManager module
+	  conspectio.ConspectioManager = __webpack_require__(67);
 
-	// import module that handles viewerSetup
-	conspectio.viewerSetup = __webpack_require__(69);
+	  // import module that handles eventsSetup
+	  conspectio.eventsSetup = __webpack_require__(68);
 
-	window.conspectio = conspectio;
+	  // import module that handles viewerSetup
+	  conspectio.viewerSetup = __webpack_require__(69);
+
+	  window.conspectio = conspectio;
+	} else {
+	  console.log('Unable to load conspectio library');
+	}
 
 /***/ },
 /* 1 */
@@ -10412,29 +10422,113 @@
 
 	'use strict';
 
-	// require in jquery
-	var $ = __webpack_require__(62);
-	var setupDom = __webpack_require__(63);
-	var broadcasterRTCEndpoint = __webpack_require__(65);
+	var _createClass = function () { function defineProperties(target, props) { for (var i = 0; i < props.length; i++) { var descriptor = props[i]; descriptor.enumerable = descriptor.enumerable || false; descriptor.configurable = true; if ("value" in descriptor) descriptor.writable = true; Object.defineProperty(target, descriptor.key, descriptor); } } return function (Constructor, protoProps, staticProps) { if (protoProps) defineProperties(Constructor.prototype, protoProps); if (staticProps) defineProperties(Constructor, staticProps); return Constructor; }; }();
 
-	var broadcasterSetup = function broadcasterSetup() {
-	  // set the conspectio.initiator to true to indicate broadcaster role
-	  conspectio.initiator = true;
+	function _classCallCheck(instance, Constructor) { if (!(instance instanceof Constructor)) { throw new TypeError("Cannot call a class as a function"); } }
 
-	  // reset conspectio.connections
-	  conspectio.connections = {};
+	var setupGetUserMedia = __webpack_require__(62);
+	var broadcasterRTCEndpoint = __webpack_require__(64);
 
-	  // invoke setupDom - setup DOM elements on webpage with appropriate click handlers
-	  setupDom();
+	var ConspectioConnection = function () {
+	  function ConspectioConnection(eventId, role, domId, viewHandler, options) {
+	    _classCallCheck(this, ConspectioConnection);
 
-	  // invoke broadcasterRTCEndpoint - setup appropriate socket events relating to webRTC connection
-	  broadcasterRTCEndpoint();
-	};
+	    this.eventId = eventId;
+	    this.role = role;
+	    this.domId = domId;
+	    this.viewHandler = viewHandler;
+	    this.options = options;
+	    this.stream = null;
+	  }
 
-	module.exports = broadcasterSetup;
+	  _createClass(ConspectioConnection, [{
+	    key: 'start',
+	    value: function start() {
+	      var _this = this;
+
+	      if (this.role && this.role === 'broadcaster') {
+	        (function () {
+
+	          // emit message to server
+	          conspectio.socket.emit('sendEventTag', _this.eventId);
+
+	          var that = _this;
+
+	          // invoke setupGetUserMedia
+	          setupGetUserMedia(_this.domId, function (stream) {
+	            // store a reference of MediaStream
+	            that.stream = stream;
+
+	            // setup broadcasterRTCEndpoint - passing in the MediaStream
+	            broadcasterRTCEndpoint(stream);
+	          });
+	        })();
+	      } else if (this.role && this.role === 'viewer') {}
+	    }
+	  }, {
+	    key: 'stop',
+	    value: function stop() {
+
+	      if (this.role && this.role === 'broadcaster') {
+	        // stop stream
+	        this.stream.getTracks()[0].stop();
+
+	        // emit message to server
+	        conspectio.socket.emit('removeBroadcaster', this.eventId);
+	      } else if (this.role && this.role === 'viewer') {}
+
+	      // for each endpoint in connections{}, close it out
+	      for (var conspectioBroadcasterId in conspectio.connections) {
+	        conspectio.connections[conspectioBroadcasterId].removeStreamWrapper();
+	        conspectio.connections[conspectioBroadcasterId].closeWrapper();
+	        delete conspectio.connections[conspectioBroadcasterId];
+	      }
+	    }
+	  }]);
+
+	  return ConspectioConnection;
+	}();
+
+	module.exports = ConspectioConnection;
 
 /***/ },
 /* 62 */
+/***/ function(module, exports, __webpack_require__) {
+
+	'use strict';
+
+	// require in jquery
+	var $ = __webpack_require__(63);
+
+	var setupGetUserMedia = function setupGetUserMedia(domId, callback) {
+
+	  // retrieve getUserMedia
+	  navigator.getUserMedia = navigator.getUserMedia || navigator.webkitGetUserMedia || navigator.mozGetUserMedia;
+
+	  if (navigator.getUserMedia) {
+	    navigator.getUserMedia({ video: true, audio: false }, handleVideo, videoError);
+	  }
+
+	  function handleVideo(stream) {
+	    // grab the broadcasterStream dom element and set the src
+	    var broadcasterStreamId = '#' + domId;
+	    var broadcasterStream = $(broadcasterStreamId)[0];
+	    broadcasterStream.src = window.URL.createObjectURL(stream);
+
+	    // invoke callback
+	    callback(stream);
+	  }
+
+	  function videoError(e) {
+	    // log video error
+	    console.log('Unable to get stream from getUserMedia', e);
+	  }
+	};
+
+	module.exports = setupGetUserMedia;
+
+/***/ },
+/* 63 */
 /***/ function(module, exports, __webpack_require__) {
 
 	var __WEBPACK_AMD_DEFINE_ARRAY__, __WEBPACK_AMD_DEFINE_RESULT__;/*!
@@ -20660,174 +20754,18 @@
 
 
 /***/ },
-/* 63 */
-/***/ function(module, exports, __webpack_require__) {
-
-	'use strict';
-
-	// require in jquery
-	var $ = __webpack_require__(62);
-	var setupGetUserMedia = __webpack_require__(64);
-
-	var setupDom = function setupDom() {
-
-	  var parentElement = $('#conspectioBroadcasterContainer');
-
-	  var broadcasterStream = $('<video></video>').attr({
-	    'id': 'broadcasterStream',
-	    'autoplay': true
-	  });
-
-	  var videoContainer = $('<div></div>').append(broadcasterStream);
-	  //parentElement.append(videoContainer);
-
-	  var broadcastMsg = $('<div></div>').attr({
-	    'id': 'broadcastMsg'
-	  });
-
-	  //parentElement.append(broadcastMsg);
-
-	  var eventTag = $('<input></input>').attr({
-	    'id': 'eventTag',
-	    'type': 'text',
-	    'placeholder': 'tag your stream here'
-	  });
-
-	  var startButton = $('<input></input>').attr({
-	    'id': 'startButton',
-	    'class': 'btn btn-success btn-sm',
-	    'type': 'submit',
-	    'value': 'start'
-	  });
-
-	  var stopButton = $('<input></input>').attr({
-	    'id': 'stopButton',
-	    'class': 'btn btn-danger btn-sm',
-	    'type': 'submit',
-	    'value': 'stop',
-	    // 'onclick': 'stopStream',
-	    'disabled': true
-	  });
-
-	  var inputDiv = $('<div></div>').attr({
-	    'id': 'broadcasterinputs'
-	  });
-
-	  inputDiv.append(eventTag);
-	  inputDiv.append(startButton);
-	  inputDiv.append(stopButton);
-
-	  var row = $('<div></div>').attr({
-	    'class': 'row'
-	  });
-
-	  var col = $('<div></div>').attr({
-	    'class': 'col-xs-6'
-	  });
-	  row.append(col);
-	  var thumbnail = $('<div></div>').attr({
-	    'class': 'thumbnail'
-	  });
-	  row.append(thumbnail);
-	  var caption = $('<div></div>').attr({
-	    'class': 'caption'
-	  });
-	  var title = $('<h2>Broadcast to the World!</h2>');
-	  var headline = $('<p>Add an event name and hit start!</p>');
-	  caption.append(title);
-	  caption.append(headline);
-
-	  thumbnail.append(caption);
-	  thumbnail.append(inputDiv);
-	  thumbnail.append(videoContainer);
-	  thumbnail.append(broadcastMsg);
-	  parentElement.append(row);
-
-	  // setup dom event handlers
-	  function sendEventTag() {
-
-	    var eventTag = $('#eventTag').val();
-
-	    // store eventTag value to conspectio.broadcasterEventTag
-	    conspectio.broadcasterEventTag = eventTag;
-
-	    if (eventTag.length) {
-	      $('#startButton').prop('disabled', true);
-	      $('#stopButton').prop('disabled', false);
-
-	      // TODO: possible to further decouple with socket?
-	      conspectio.socket.emit('sendEventTag', eventTag);
-
-	      // invoke setupGetUserMedia
-	      setupGetUserMedia();
-	    } else {
-	      alert('please enter a tag name to start streaming');
-	    }
-	  };
-
-	  function stopStream() {
-	    conspectio.broadcasterStream.getTracks()[0].stop();
-	    $('#startButton').prop('disabled', false);
-	    $('#stopButton').prop('disabled', true);
-	    conspectio.socket.emit('removeBroadcaster', conspectio.broadcasterEventTag);
-	    $('#broadcastMsg').empty();
-	    $('#broadcastMsg').html('<h4>You have stopped streaming</h4>');
-	  };
-
-	  $('#startButton').on('click', sendEventTag);
-	  $('#stopButton').on('click', stopStream);
-	};
-
-	module.exports = setupDom;
-
-/***/ },
 /* 64 */
 /***/ function(module, exports, __webpack_require__) {
 
 	'use strict';
 
-	// require in jquery
-	var $ = __webpack_require__(62);
+	var ConspectioBroadcaster = __webpack_require__(65);
+	var send = __webpack_require__(66);
 
-	var setupGetUserMedia = function setupGetUserMedia() {
-
-	  // retrieve getUserMedia
-	  navigator.getUserMedia = navigator.getUserMedia || navigator.webkitGetUserMedia || navigator.mozGetUserMedia;
-
-	  if (navigator.getUserMedia) {
-	    navigator.getUserMedia({ video: true, audio: false }, handleVideo, videoError);
-	  }
-
-	  function handleVideo(stream) {
-	    // keep a reference of the broadcasterStream in conspectio object
-	    conspectio.broadcasterStream = stream;
-
-	    // grab the broadcasterStream dom element
-	    var broadcasterStream = $('#broadcasterStream')[0];
-	    broadcasterStream.src = window.URL.createObjectURL(stream);
-	  }
-
-	  function videoError(e) {
-	    // log video error
-	    console.log('unable to get stream from getUserMedia', e);
-	  }
-	};
-
-	module.exports = setupGetUserMedia;
-
-/***/ },
-/* 65 */
-/***/ function(module, exports, __webpack_require__) {
-
-	'use strict';
-
-	var ConspectioBroadcaster = __webpack_require__(66);
-	var send = __webpack_require__(67);
-
-	var broadcasterRTCEndpoint = function broadcasterRTCEndpoint() {
+	var broadcasterRTCEndpoint = function broadcasterRTCEndpoint(stream) {
 	  conspectio.socket.on('initiateConnection', function (viewerId) {
 	    console.log('viewer ', viewerId, ' wants to connect');
-	    var newPC = new ConspectioBroadcaster(viewerId);
+	    var newPC = new ConspectioBroadcaster(viewerId, stream);
 	    console.log('broadcast newPC', newPC);
 	    conspectio.connections[viewerId] = newPC;
 	    newPC.init();
@@ -20849,7 +20787,7 @@
 	module.exports = broadcasterRTCEndpoint;
 
 /***/ },
-/* 66 */
+/* 65 */
 /***/ function(module, exports, __webpack_require__) {
 
 	'use strict';
@@ -20858,16 +20796,17 @@
 
 	function _classCallCheck(instance, Constructor) { if (!(instance instanceof Constructor)) { throw new TypeError("Cannot call a class as a function"); } }
 
-	var send = __webpack_require__(67);
+	var send = __webpack_require__(66);
 
 	// custom wrapper class over RTCPeerConnection object
 
 	var ConspectioBroadcaster = function () {
-	  function ConspectioBroadcaster(viewerId) {
+	  function ConspectioBroadcaster(viewerId, stream) {
 	    _classCallCheck(this, ConspectioBroadcaster);
 
 	    this.viewerId = viewerId;
 	    this.pc;
+	    this.stream = stream;
 	  }
 
 	  _createClass(ConspectioBroadcaster, [{
@@ -20890,7 +20829,7 @@
 	      });
 	      this.pc.viewerId = this.viewerId; // add custom attribute
 	      this.pc.onicecandidate = this.handleIceCandidate;
-	      this.pc.addStream(conspectio.broadcasterStream);
+	      this.pc.addStream(this.stream);
 	      this.pc.oniceconnectionstatechange = this.handleIceConnectionChange;
 	    }
 	  }, {
@@ -20946,7 +20885,7 @@
 	  }, {
 	    key: 'removeStreamWrapper',
 	    value: function removeStreamWrapper() {
-	      this.pc.removeStream(globalStream);
+	      this.pc.removeStream(this.stream);
 	      console.log('ConspectioBroadcaster removeStreamWrapper invoked');
 	    }
 	  }, {
@@ -20963,7 +20902,7 @@
 	module.exports = ConspectioBroadcaster;
 
 /***/ },
-/* 67 */
+/* 66 */
 /***/ function(module, exports) {
 
 	'use strict';
@@ -20977,12 +20916,44 @@
 	module.exports = send;
 
 /***/ },
+/* 67 */
+/***/ function(module, exports) {
+
+	'use strict';
+
+	var _createClass = function () { function defineProperties(target, props) { for (var i = 0; i < props.length; i++) { var descriptor = props[i]; descriptor.enumerable = descriptor.enumerable || false; descriptor.configurable = true; if ("value" in descriptor) descriptor.writable = true; Object.defineProperty(target, descriptor.key, descriptor); } } return function (Constructor, protoProps, staticProps) { if (protoProps) defineProperties(Constructor.prototype, protoProps); if (staticProps) defineProperties(Constructor, staticProps); return Constructor; }; }();
+
+	function _classCallCheck(instance, Constructor) { if (!(instance instanceof Constructor)) { throw new TypeError("Cannot call a class as a function"); } }
+
+	var ConspectioConnection = function () {
+	  function ConspectioConnection() {
+	    _classCallCheck(this, ConspectioConnection);
+	  }
+
+	  _createClass(ConspectioConnection, [{
+	    key: 'init',
+	    value: function init(callback) {
+	      conspectio.socket.emit('getEventList');
+
+	      conspectio.socket.on('sendEventList', function (eventList) {
+	        console.log('EVENT LIST:', eventList);
+	        callback(eventList);
+	      });
+	    }
+	  }]);
+
+	  return ConspectioConnection;
+	}();
+
+	module.exports = ConspectioConnection;
+
+/***/ },
 /* 68 */
 /***/ function(module, exports, __webpack_require__) {
 
 	'use strict';
 
-	var $ = __webpack_require__(62);
+	var $ = __webpack_require__(63);
 
 	var eventsSetup = function eventsSetup() {
 	  conspectio.socket.emit('getEventList');
@@ -21012,7 +20983,7 @@
 	'use strict';
 
 	// require in jquery
-	var $ = __webpack_require__(62);
+	var $ = __webpack_require__(63);
 	var setupViewerDom = __webpack_require__(70);
 	var viewerRTCEndpoint = __webpack_require__(71);
 
@@ -21039,7 +21010,7 @@
 	'use strict';
 
 	// require in jquery
-	var $ = __webpack_require__(62);
+	var $ = __webpack_require__(63);
 
 	var setupViewerDom = function setupViewerDom() {
 	  var parentElement = $('#conspectioViewerContainer').addClass('row viewergridrow');
@@ -21072,7 +21043,7 @@
 	'use strict';
 
 	var ConspectioViewer = __webpack_require__(72);
-	var send = __webpack_require__(67);
+	var send = __webpack_require__(66);
 
 	var viewerRTCEndpoint = function viewerRTCEndpoint(eventTag) {
 
@@ -21124,8 +21095,8 @@
 	function _classCallCheck(instance, Constructor) { if (!(instance instanceof Constructor)) { throw new TypeError("Cannot call a class as a function"); } }
 
 	// require in jquery
-	var $ = __webpack_require__(62);
-	var send = __webpack_require__(67);
+	var $ = __webpack_require__(63);
+	var send = __webpack_require__(66);
 
 	// custom wrapper class over RTCPeerConnection object
 
@@ -21178,7 +21149,7 @@
 	        'id': this.broadcasterId.slice(2)
 	      });
 	      var responsiveGrid = $('<div class = "col-xs-6"></div>');
-	      var videoDiv = $('<div id="videosDiv"></div>');
+	      var videoDiv = $('<div id="videosDiv"></div>'); // ids are supposed to be unique, change to class?
 	      var videoDivVideo = videoDiv.append(video);
 	      var responsiveGridvideoDivVideo = responsiveGrid.append(videoDivVideo);
 
