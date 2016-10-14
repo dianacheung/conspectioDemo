@@ -1,5 +1,4 @@
-// conspectio.viewerSetup();
-
+// setup viewer.html dom and event handlers
 function setupViewerDom() {
   const parentElement = $('#conspectioViewerContainer').addClass('row viewergridrow');
 
@@ -33,7 +32,7 @@ function handleNoMoreBroadcasters(destination) {
 
 var eventTag = setupViewerDom();
 
-// eventId, role, domId, viewHandler, options
+// expected args - eventId, role, domId, viewHandler, RTCPeerConnection options
 var conspectioConnectionObj = new conspectio.ConspectioConnection(eventTag, 'viewer', 'conspectioViewerContainer', handleNoMoreBroadcasters, null);
 conspectioConnectionObj.start();
 

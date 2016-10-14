@@ -1,5 +1,4 @@
 // invoke to setup socket listeners and get list of active events
-// conspectio.eventsSetup();
 var conspectioManagerObj = new conspectio.ConspectioManager();
 
 // call init() passing in callback function for handling displaying of events

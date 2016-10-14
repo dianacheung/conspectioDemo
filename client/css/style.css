@@ -33,7 +33,7 @@
   height: 100%;
 }
 
-#videosDiv, .caption, #broadcasterinputs, .row {
+.videoDiv, .caption, #broadcasterinputs, .row {
   text-align: center;
   /*width: 100%;*/
 }

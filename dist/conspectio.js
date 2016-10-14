@@ -59,25 +59,14 @@
 	  // instantiate socket
 	  conspectio.socket = io();
 
-	  // conspectio.broadcasterStream = null;
-	  // conspectio.broadcasterEventTag = null;
-	  // conspectio.initiator = null;
+	  // the connections object holds multiple ConspectioConnection objects
 	  conspectio.connections = {};
-	  // conspectio.webRTCConfig = {};
 
-	  // import module that handles broadcasterSetup
-	  // conspectio.broadcasterSetup = require('./broadcasterSetup');
 	  // import the ConspectioConnection module
 	  conspectio.ConspectioConnection = __webpack_require__(61);
 
 	  // import the ConspectioManager module
-	  conspectio.ConspectioManager = __webpack_require__(67);
-
-	  // import module that handles eventsSetup
-	  conspectio.eventsSetup = __webpack_require__(68);
-
-	  // import module that handles viewerSetup
-	  conspectio.viewerSetup = __webpack_require__(69);
+	  conspectio.ConspectioManager = __webpack_require__(69);
 
 	  window.conspectio = conspectio;
 	} else {
@@ -10428,7 +10417,7 @@
 
 	var setupGetUserMedia = __webpack_require__(62);
 	var broadcasterRTCEndpoint = __webpack_require__(64);
-	var viewerRTCEndpoint = __webpack_require__(71);
+	var viewerRTCEndpoint = __webpack_require__(67);
 
 	var ConspectioConnection = function () {
 	  function ConspectioConnection(eventId, role, domId, viewHandler, options) {
@@ -10449,15 +10438,17 @@
 
 	      if (this.role && this.role === 'broadcaster') {
 	        (function () {
+	          // reset conspectio.connections
+	          conspectio.connections = {};
 
 	          // emit message to server
 	          conspectio.socket.emit('sendEventTag', _this.eventId);
 
 	          var that = _this;
 
-	          // invoke setupGetUserMedia
+	          // invoke setupGetUserMedia - the callback function is invoked after success getUserMedia()
 	          setupGetUserMedia(_this.domId, function (stream) {
-	            // store a reference of MediaStream
+	            // store a reference of MediaStream in this object's stream property
 	            that.stream = stream;
 
 	            // setup broadcasterRTCEndpoint - passing in the MediaStream
@@ -10519,7 +10510,7 @@
 	    var broadcasterStream = $(broadcasterStreamId)[0];
 	    broadcasterStream.src = window.URL.createObjectURL(stream);
 
-	    // invoke callback
+	    // invoke callback - which will call broadcasterRTCEndpoint(stream)
 	    callback(stream);
 	  }
 
@@ -20764,13 +20755,12 @@
 	'use strict';
 
 	var ConspectioBroadcaster = __webpack_require__(65);
-	var send = __webpack_require__(66);
 
 	var broadcasterRTCEndpoint = function broadcasterRTCEndpoint(stream) {
 	  conspectio.socket.on('initiateConnection', function (viewerId) {
 	    console.log('viewer ', viewerId, ' wants to connect');
 	    var newPC = new ConspectioBroadcaster(viewerId, stream);
-	    console.log('broadcast newPC', newPC);
+	    console.log('broadcaster newPC', newPC);
 	    conspectio.connections[viewerId] = newPC;
 	    newPC.init();
 	    newPC.createOfferWrapper();
@@ -20814,12 +20804,6 @@
 	  }
 
 	  _createClass(ConspectioBroadcaster, [{
-	    key: 'getViewerId',
-	    value: function getViewerId() {
-	      console.log('getViewerId', this.viewerId);
-	      return this.viewerId;
-	    }
-	  }, {
 	    key: 'init',
 	    value: function init() {
 	      this.pc = new RTCPeerConnection({
@@ -20854,6 +20838,8 @@
 	    value: function handleIceConnectionChange() {
 	      if (this.pc) {
 	        console.log('inside handleIceCandidateDisconnect', this.pc.iceConnectionState);
+
+	        // comment out the following check???
 	        if (this.pc.iceConnectionState === 'disconnected') {
 	          console.log('inside pc.onIceConnectionState');
 	          this.pc.close();
@@ -20921,133 +20907,11 @@
 
 /***/ },
 /* 67 */
-/***/ function(module, exports) {
-
-	'use strict';
-
-	var _createClass = function () { function defineProperties(target, props) { for (var i = 0; i < props.length; i++) { var descriptor = props[i]; descriptor.enumerable = descriptor.enumerable || false; descriptor.configurable = true; if ("value" in descriptor) descriptor.writable = true; Object.defineProperty(target, descriptor.key, descriptor); } } return function (Constructor, protoProps, staticProps) { if (protoProps) defineProperties(Constructor.prototype, protoProps); if (staticProps) defineProperties(Constructor, staticProps); return Constructor; }; }();
-
-	function _classCallCheck(instance, Constructor) { if (!(instance instanceof Constructor)) { throw new TypeError("Cannot call a class as a function"); } }
-
-	var ConspectioConnection = function () {
-	  function ConspectioConnection() {
-	    _classCallCheck(this, ConspectioConnection);
-	  }
-
-	  _createClass(ConspectioConnection, [{
-	    key: 'init',
-	    value: function init(callback) {
-	      conspectio.socket.emit('getEventList');
-
-	      conspectio.socket.on('sendEventList', function (eventList) {
-	        console.log('EVENT LIST:', eventList);
-	        callback(eventList);
-	      });
-	    }
-	  }]);
-
-	  return ConspectioConnection;
-	}();
-
-	module.exports = ConspectioConnection;
-
-/***/ },
-/* 68 */
 /***/ function(module, exports, __webpack_require__) {
 
 	'use strict';
 
-	var $ = __webpack_require__(63);
-
-	var eventsSetup = function eventsSetup() {
-	  conspectio.socket.emit('getEventList');
-
-	  conspectio.socket.on('sendEventList', function (eventList) {
-	    console.log('EVENT LIST:', eventList);
-	    displayEventList(eventList);
-	  });
-
-	  function displayEventList(eventList) {
-	    console.log('inside displayEventList');
-	    $('#conspectioEventsContainer').empty();
-	    $('#conspectioEventsContainer').append('<ul>');
-	    eventList.forEach(function (event) {
-	      $('#conspectioEventsContainer').append('<li><a href=\'viewer.html?tag=' + event + '\'><span class =\'label label-default\'>' + event + '</span></a></li>');
-	    });
-	    $('#conspectioEventsContainer').append('</ul>');
-	  };
-	};
-
-	module.exports = eventsSetup;
-
-/***/ },
-/* 69 */
-/***/ function(module, exports, __webpack_require__) {
-
-	'use strict';
-
-	// require in jquery
-	var $ = __webpack_require__(63);
-	var setupViewerDom = __webpack_require__(70);
-	var viewerRTCEndpoint = __webpack_require__(71);
-
-	var viewerSetup = function viewerSetup() {
-	  // set the conspectio.initiator to false to indicate viewer role
-	  conspectio.initiator = false;
-
-	  // reset conspectio.connections
-	  conspectio.connections = {};
-
-	  // invoke setupDom - setup DOM elements on webpage with appropriate click handlers
-	  var eventTag = setupViewerDom();
-
-	  // invoke viewerRTCEndpoint - setup appropriate socket events relating to webRTC connection
-	  viewerRTCEndpoint(eventTag);
-	};
-
-	module.exports = viewerSetup;
-
-/***/ },
-/* 70 */
-/***/ function(module, exports, __webpack_require__) {
-
-	'use strict';
-
-	// require in jquery
-	var $ = __webpack_require__(63);
-
-	var setupViewerDom = function setupViewerDom() {
-	  var parentElement = $('#conspectioViewerContainer').addClass('row viewergridrow');
-
-	  // setup the eventName DOM element and populate with url query value
-	  var eventName = $('<h1></h1>').attr({
-	    'id': 'eventName'
-	  });
-
-	  parentElement.append(eventName);
-
-	  var eventTag = window.location.search.substring(5);
-	  $('#eventName').html(eventTag);
-
-	  var videosDiv = $('<div></div>').attr({
-	    'id': 'videosDiv'
-	  });
-
-	  parentElement.append(videosDiv);
-
-	  return eventTag;
-	};
-
-	module.exports = setupViewerDom;
-
-/***/ },
-/* 71 */
-/***/ function(module, exports, __webpack_require__) {
-
-	'use strict';
-
-	var ConspectioViewer = __webpack_require__(72);
-	var send = __webpack_require__(66);
+	var ConspectioViewer = __webpack_require__(68);
 
 	var viewerRTCEndpoint = function viewerRTCEndpoint(eventTag, domId, viewHandler) {
 
@@ -21072,9 +20936,10 @@
 
 	  //redirect viewer to events page if there are no more broadcasters streaming their event
 	  conspectio.socket.on('redirectToEvents', function (destination) {
-	    viewHandler(destination);
-	    // console.log('redirecting viewer to events page');
-	    // window.location.href = destination;
+	    // invoke the viewHandler callback passed in by developer to handle no more broadcasters situation
+	    if (viewHandler) {
+	      viewHandler(destination);
+	    }
 	  });
 
 	  //broadcaster left - close connection & remove from connections object
@@ -21090,7 +20955,7 @@
 	module.exports = viewerRTCEndpoint;
 
 /***/ },
-/* 72 */
+/* 68 */
 /***/ function(module, exports, __webpack_require__) {
 
 	'use strict';
@@ -21156,27 +21021,26 @@
 	        'id': this.broadcasterId.slice(2)
 	      });
 	      var responsiveGrid = $('<div class = "col-xs-6"></div>');
-	      var videoDiv = $('<div id="videosDiv"></div>'); // ids are supposed to be unique, change to class?
+	      var videoDiv = $('<div class="videoDiv"></div>');
 	      var videoDivVideo = videoDiv.append(video);
 	      var responsiveGridvideoDivVideo = responsiveGrid.append(videoDivVideo);
 
 	      var viewerVideosDivId = '#' + this.domId;
 	      $(viewerVideosDivId).append(responsiveGridvideoDivVideo);
-	      // $('.viewergridrow').append(responsiveGridvideoDivVideo);
-	      //$('#videosDiv').append(video);
 	    }
 	  }, {
 	    key: 'handleRemoteStreamRemoved',
 	    value: function handleRemoteStreamRemoved(event) {
+	      // don't think this handler is being invoked
 	      console.log('broadcaster stream removed');
-	      //remove stream video tag - don't think this handler is being invoked
-	      // $('#' + this.broadcasterId).remove();
 	    }
 	  }, {
 	    key: 'handleIceConnectionChange',
 	    value: function handleIceConnectionChange() {
 	      if (this.pc) {
 	        console.log('inside handleIceCandidateDisconnect', this.pc.iceConnectionState);
+
+	        // comment out the following check???
 	        if (this.pc.iceConnectionState === 'disconnected') {
 	          console.log('inside pc.onIceConnectionState');
 	          this.pc.close();
@@ -21224,6 +21088,40 @@
 	}();
 
 	module.exports = ConspectioViewer;
+
+/***/ },
+/* 69 */
+/***/ function(module, exports) {
+
+	'use strict';
+
+	var _createClass = function () { function defineProperties(target, props) { for (var i = 0; i < props.length; i++) { var descriptor = props[i]; descriptor.enumerable = descriptor.enumerable || false; descriptor.configurable = true; if ("value" in descriptor) descriptor.writable = true; Object.defineProperty(target, descriptor.key, descriptor); } } return function (Constructor, protoProps, staticProps) { if (protoProps) defineProperties(Constructor.prototype, protoProps); if (staticProps) defineProperties(Constructor, staticProps); return Constructor; }; }();
+
+	function _classCallCheck(instance, Constructor) { if (!(instance instanceof Constructor)) { throw new TypeError("Cannot call a class as a function"); } }
+
+	var ConspectioConnection = function () {
+	  function ConspectioConnection() {
+	    _classCallCheck(this, ConspectioConnection);
+	  }
+
+	  _createClass(ConspectioConnection, [{
+	    key: 'init',
+	    value: function init(callback) {
+	      // emit message to server
+	      conspectio.socket.emit('getEventList');
+
+	      // listener for receiving events list
+	      conspectio.socket.on('sendEventList', function (eventList) {
+	        console.log('EVENT LIST:', eventList);
+	        callback(eventList);
+	      });
+	    }
+	  }]);
+
+	  return ConspectioConnection;
+	}();
+
+	module.exports = ConspectioConnection;
 
 /***/ }
 /******/ ]);
