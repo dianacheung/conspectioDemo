@@ -4,7 +4,9 @@ const http = require ('http').Server(app);
 const path = require('path');
 
 // require in conspectio npm package and invoke
-const conspectioServer = require('conspectio');
+// const conspectioServer = require('conspectio');
+// lib in progress, use the lib server conspectioServer.js
+const conspectioServer = require('./../lib/server/conspectioServer.js');
 conspectioServer(http);
 
 // currently don't have a CDN conspectio client lib, need this server to host the file
