@@ -10428,6 +10428,7 @@
 
 	var setupGetUserMedia = __webpack_require__(62);
 	var broadcasterRTCEndpoint = __webpack_require__(64);
+	var viewerRTCEndpoint = __webpack_require__(71);
 
 	var ConspectioConnection = function () {
 	  function ConspectioConnection(eventId, role, domId, viewHandler, options) {
@@ -10463,7 +10464,10 @@
 	            broadcasterRTCEndpoint(stream);
 	          });
 	        })();
-	      } else if (this.role && this.role === 'viewer') {}
+	      } else if (this.role && this.role === 'viewer') {
+	        // invoke viewerRTCEndpoint - setup appropriate socket events relating to webRTC connection
+	        viewerRTCEndpoint(this.eventId, this.domId, this.viewHandler);
+	      }
 	    }
 	  }, {
 	    key: 'stop',
@@ -21045,7 +21049,7 @@
 	var ConspectioViewer = __webpack_require__(72);
 	var send = __webpack_require__(66);
 
-	var viewerRTCEndpoint = function viewerRTCEndpoint(eventTag) {
+	var viewerRTCEndpoint = function viewerRTCEndpoint(eventTag, domId, viewHandler) {
 
 	  // viewer wants to initiate contact with broadcaster
 	  conspectio.socket.emit('initiateView', eventTag);
@@ -21053,7 +21057,7 @@
 	  // viewer receives offer or candidate signaling messages
 	  conspectio.socket.on('signal', function (fromId, message) {
 	    if (message.type === 'offer') {
-	      var newPC = new ConspectioViewer(fromId);
+	      var newPC = new ConspectioViewer(fromId, domId);
 	      conspectio.connections[fromId] = newPC;
 	      newPC.init();
 	      newPC.receiveOffer(message.offer);
@@ -21068,8 +21072,9 @@
 
 	  //redirect viewer to events page if there are no more broadcasters streaming their event
 	  conspectio.socket.on('redirectToEvents', function (destination) {
-	    console.log('redirecting viewer to events page');
-	    window.location.href = destination;
+	    viewHandler(destination);
+	    // console.log('redirecting viewer to events page');
+	    // window.location.href = destination;
 	  });
 
 	  //broadcaster left - close connection & remove from connections object
@@ -21101,10 +21106,11 @@
 	// custom wrapper class over RTCPeerConnection object
 
 	var ConspectioViewer = function () {
-	  function ConspectioViewer(broadcasterId) {
+	  function ConspectioViewer(broadcasterId, domId) {
 	    _classCallCheck(this, ConspectioViewer);
 
 	    this.broadcasterId = broadcasterId;
+	    this.domId = domId;
 	    this.pc;
 	  }
 
@@ -21122,6 +21128,7 @@
 	      });
 
 	      this.pc.broadcasterId = this.broadcasterId; // add custom attribute
+	      this.pc.domId = this.domId; // add custom attribute
 	      this.pc.onicecandidate = this.handleIceCandidate;
 	      this.pc.onaddstream = this.handleRemoteStreamAdded;
 	      this.pc.onremovestream = this.handleRemoteStreamRemoved;
@@ -21153,7 +21160,9 @@
 	      var videoDivVideo = videoDiv.append(video);
 	      var responsiveGridvideoDivVideo = responsiveGrid.append(videoDivVideo);
 
-	      $('.viewergridrow').append(responsiveGridvideoDivVideo);
+	      var viewerVideosDivId = '#' + this.domId;
+	      $(viewerVideosDivId).append(responsiveGridvideoDivVideo);
+	      // $('.viewergridrow').append(responsiveGridvideoDivVideo);
 	      //$('#videosDiv').append(video);
 	    }
 	  }, {
